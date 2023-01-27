@@ -1,0 +1,142 @@
+---
+title: "Cafe Ocean Data Analysis"
+author: "Mengkong Aun"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+---
+Assessement 2- Cafe Ocean Data Analysis
+Steps to Perform:
+1- Load the data as a data frame for ease of use and correct the column names if required
+2- Include insights about the most famous item overall and in each category
+3- Find the costliest item overall and in each category
+4- Create plots to explore category-wise share of revenue
+5- Describe the day-wise sales trends
+6- Describe customer traffic in monthly, daily, and hourly granularity
+7- Perform menu analysis to come up with the combo the customers will like the most
+
+1- Load the data as a data frame for ease of use and correct the column names if required
+```{r}
+library(readxl)
+cafe <-read_excel("Cafe_Ocean.xlsx")
+str(cafe)
+
+colnames(cafe)<- c("date","billnumber","id","time","qty","price","tax","discount","total","category")
+```
+
+2- Include insights about the most famous item overall and in each category
+```{r}
+library(dplyr)
+cafe2 <- summarise(select(group_by(cafe,id,category), qty,),
+                   qty=sum(qty,na.rm = T))
+cafe3 <- cafe2 %>% arrange(category,desc(ave(qty,id, FUN=sum)))
+```
+Comment: The most famous item in each category is summarised in below table: 
+# CAPPUCCINO                BEVERAGE            7144
+# OCEAN SPECIAL SHAKE       FOOD                5914
+# CARLSBERG                 LIQUOR              3380
+# BEER HOOKAH               LIQUOR & TPBACCO    49
+# OCEAN SPECIAL T-SHIRTS    MERCHANDISE         37
+# ADD ON S                  MISC                448 
+# NIRVANA HOOKAH SINGLE     TOBACCO             8686
+# VLN CAB SAUV (GLS)        WINES               216
+
+3- Find the costliest item overall and in each category
+```{r}
+cafe4 <- summarise(select(group_by(cafe,id,category), price,),
+                   price=max(price,na.rm = T))
+
+cafe5 <- cafe4 %>% arrange(category,desc(ave(price,id, FUN=sum)))
+```
+Comment: The most expensive item in each category is summarised in below table: 
+N R G HOOKAH                      BEVERAGE              450
+J.PCHENET SPARKLING ROSE (BTL)    FOOD                  1700
+STELLA 1LTR 2+1                   LIQUOR                1300
+4 DOM BEER + 1SPL SHEESHA         LIQUOR & TPBACCO      750
+FLAVOR 1000 GMS                   MERCHANDISE           1470
+RED SANGRIA (CARAFE) áááááááá     MISC                  800
+N R G HOOKAH                      TOBACCO               450
+GOSSIPS CHARD AUS (BTL)           WINES                 2100
+
+4- Create plots to explore category-wise share of revenue
+```{r}
+library(ggplot2)
+library(formattable)
+g1 <- cafe %>% group_by(category) %>% summarise(total =n()) %>% mutate(share = formattable:: percent(total/sum(total)))
+
+plot1 <- ggplot(data=g1, aes(x=share, y=(reorder(category, -share))))+
+  geom_bar(stat = "identity") + scale_x_continuous(labels = scales::percent)+
+  labs(title ="Plot to Explore Category-wise Share of Revenue", x ="Share of Revenue", y="Category")
+```
+
+Comment: According to the plot to explore category-wise share of revenue,Food category contributes the highest revenue of about 40% of the total sale followed by Beverage category that shares 30%. Tobacco contributes to 25% of the total revenue whereas Liquor only brought around 5% to the total sale. Whereas, other categories brought less than 3% to the total revenue. 
+
+5- Describe the day-wise sales trends
+
+
+6- Describe customer traffic in monthly, daily, and hourly granularity
+Comment: We have to count the bill number to identity customer traffic.
+
+Creating a month-year column
+```{r}
+cafe$month <- as.Date(cut(cafe$date, breaks = "month"))
+```
+
+Finding customer traffic
++ Monthly traffic
+```{r}
+monthly_customer <- cafe %>% group_by(month) %>% summarise(customer_traffic=n_distinct(billnumber))
+print(monthly_customer)
+```
+- Monthly-traffic Graph 
+```{r}
+ggplot(cafe, aes(x=month, y=qty)) + geom_bar(stat = "identity") +
+  geom_col(fill="navyblue") + 
+  scale_y_continuous(labels = comma, breaks=seq(0,18000,2000)) +
+  scale_x_date(date_labels="%b-%y", breaks = "1 month") +
+  theme(axis.text.x = element_text(size =10, angle = 90))+
+  labs(titles= "Monthly Customer Traffic Graph", x ="Month", y="Customer Traffic")
+```
+Comment: According to above graph, September and October are the busiest months of approximately over 16,000 customers followed by May which has over 15,000 people coming to the shop. Whereas, February has the least customer of around 11,000.
+
++ Daily traffic
+```{r}
+daily_customer <- cafe %>% group_by(date) %>% summarise(customer_traffic=n_distinct(billnumber))
+print(daily_customer)
+```
+- Daily-traffic graph
+```{r}
+ggplot(daily_customer, aes(x=date, y=customer_traffic)) + geom_bar(stat = "identity") +
+  geom_col(fill="navyblue") + 
+  scale_y_continuous(labels = comma, breaks=seq(0,18000,2000)) +
+  theme(axis.text.x = element_text(size =5, angle = 90))+
+  labs(titles= "Daily Customer Traffic Graph",x ="Daily", y="Customer Traffic")
+```
+
++ Hourly traffic
+```{r}
+cafe$time <- as.POSIXct(cafe$time, format = "%H")
+hourly_customer <- cafe %>% group_by(time) %>% summarise(customer_traffic=n_distinct(billnumber))
+print(hourly_customer)
+```
+
+- Hourly-traffic graph
+```{r}
+ggplot(hourly_customer, aes(x=time, y=customer_traffic)) + geom_bar(stat = "identity") +
+  geom_col(fill="navyblue") + 
+  scale_y_continuous(labels = comma, breaks=seq(0,18000,2000)) +
+  theme(axis.text.x = element_text(size =10, angle = 90))+
+  labs(titles= "Hourly Customer Traffic Graph", x ="Time", y="Customer Traffic")
+```
+Comment: From 10am to 7pm, the number of customer increases dramatically from below 500 to over 6,000 people. Noticeably, 7pm and 8pm are the peak hours at the shop. The number of customers fluctuated slightly from 9pm to 1am. However, from 2am to 10am less than 500 people come to the shop. 
+
+7- Perform menu analysis to come up with the combo the customers will like the most
+Comment: I spent many hours time trying to convert dataframe to transcation. However, it did not work. Since time is my major constraint, I decided to keep this section as for a study case. 
+We, the students, received less time from trainer to further explore "Association Mining or Market Basket". Therefore, I would appreciate if SimpliLearn team could share the solution to this section. 
+
+
+
+```{r}
+library(arules)
+```
+
